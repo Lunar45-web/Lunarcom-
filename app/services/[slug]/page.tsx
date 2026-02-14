@@ -1,4 +1,5 @@
-import { client, urlFor } from '@/sanity/lib/client';  // ensuring correct import path
+import { client } from '@/sanity/lib/client';
+import { urlFor } from '@/sanity/lib/image';
 import { PortableText } from '@portabletext/react'; 
 import { Clock, ArrowLeft, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
