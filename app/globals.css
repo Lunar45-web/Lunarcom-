@@ -6,8 +6,10 @@
 
 /* Define your custom theme, fonts, and animations */
 @theme {
-  --font-serif: var(--font-playfair), serif;
+  --font-serif: var(--font-cormorant), serif;
   --font-sans: var(--font-inter), sans-serif;
+  --font-cormorant: var(--font-cormorant), serif;
+  --font-inter: var(--font-inter), sans-serif;
 
   --animate-fade-in: fadeIn 0.5s ease-out;
   --animate-float: float 6s ease-in-out infinite;
@@ -35,4 +37,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Glass navigation effect */
+.glass-nav {
+  background: rgba(17, 33, 25, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }

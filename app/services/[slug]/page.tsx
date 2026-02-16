@@ -1,102 +1,188 @@
 import { client } from '@/sanity/lib/client';
-import { urlFor } from '@/sanity/lib/image';
 import { PortableText } from '@portabletext/react'; 
-import { Clock, ArrowLeft, MessageCircle } from 'lucide-react';
+import { Clock, ArrowLeft, MessageCircle, Check, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import ServiceGallery from '@/components/ServiceGallery'; // IMPORT NEW COMPONENT
 
-// TYPE DEFINITION: Params is now a Promise
+// --- HELPER FUNCTIONS ---
+const formatPrice = (price: string | number) => {
+  if (!price) return '';
+  const strPrice = String(price).replace(/\D/g, ''); 
+  const formatted = new Intl.NumberFormat('en-KE').format(Number(strPrice));
+  return `Ksh ${formatted}`;
+};
+
+const formatDuration = (input: string | number) => {
+  if (!input) return '';
+  const strInput = String(input);
+  if (strInput.toLowerCase().includes('hour') || strInput.toLowerCase().includes('hr')) return strInput;
+  const minutes = parseInt(strInput);
+  if (isNaN(minutes)) return strInput;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (hours === 0) return `${remainingMins} mins`;
+  if (hours > 0 && remainingMins === 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  return `${hours} ${hours === 1 ? 'hr' : 'hrs'} ${remainingMins} mins`;
+};
+
+// --- MAIN PAGE ---
+
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
+export const revalidate = 60; 
+
 export default async function ServicePage({ params }: Props) {
-  // 1. AWAIT THE PARAMS (The Fix)
   const resolvedParams = await params;
   const { slug } = resolvedParams;
 
   const query = `*[_type == "service" && slug.current == $slug][0] {
     ...,
     "imageUrl": mainImage.asset->url,
-    "galleryUrls": gallery[].asset->url
+    fullDescription,
+    gallery[] {
+      mediaType,
+      "imageUrl": image.asset->url,
+      videoUrl
+    }
   }`;
 
-  // 2. PASS THE RESOLVED SLUG
   const service = await client.fetch(query, { slug });
-  
-  // Fetch business info for WhatsApp number
   const business = await client.fetch(`*[_type == "business"][0]`);
 
   if (!service) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9F7F2]">
+      <div className="min-h-screen flex items-center justify-center bg-[#112119] text-white">
         <div className="text-center">
-          <h1 className="text-2xl font-serif text-[#2D2D2D] mb-4">Service Not Found</h1>
-          <Link href="/" className="text-[#D4AF37] underline">Return Home</Link>
+          <h1 className="text-2xl font-light text-[#14b866] mb-4">Service Not Found</h1>
+          <Link href="/" className="text-white underline hover:text-[#14b866] transition-colors">Return Home</Link>
         </div>
       </div>
     );
   }
 
-  const waLink = `https://wa.me/${business?.whatsapp}?text=Hi, I want to book ${service.title}`;
+  const waLink = `https://wa.me/${business?.whatsapp}?text=Hi, I would like to book the ${service.title} service.`;
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2] text-[#2D2D2D] font-sans">
+    <div className="min-h-screen bg-[#112119] text-white font-sans selection:bg-[#14b866] selection:text-black">
       
-      {/* 1. HERO IMAGE */}
-      <div className="relative h-[50vh] w-full bg-gray-200">
-        {service.imageUrl && (
+      {/* 1. HERO SECTION */}
+      <div className="relative h-[60vh] w-full">
+        {service.imageUrl ? (
           <img src={service.imageUrl} className="w-full h-full object-cover" alt={service.title} />
+        ) : (
+          <div className="w-full h-full bg-[#162b22]" />
         )}
-        <div className="absolute inset-0 bg-black/30" />
-        <Link href="/" className="absolute top-8 left-8 bg-white/20 backdrop-blur-md p-3 rounded-full text-white hover:bg-white/40 transition-all z-20">
-          <ArrowLeft size={24} />
-        </Link>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#112119]/60 via-[#112119]/40 to-[#112119]" />
+        
+        <div className="absolute top-8 left-6 md:left-12 z-20 flex items-center gap-2">
+           <Link 
+            href="/" 
+            className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-[#14b866] hover:border-[#14b866] transition-all"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div className="hidden md:flex items-center gap-2 text-sm text-white/60 font-medium backdrop-blur-md bg-black/20 px-4 py-2 rounded-full border border-white/5">
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <ChevronRight size={14} />
+            <span className="text-[#14b866]">Service Details</span>
+          </div>
+        </div>
       </div>
 
-      {/* 2. CONTENT CONTAINER */}
-      <div className="max-w-4xl mx-auto -mt-20 relative z-10 px-6 pb-20">
-        <div className="bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-[2rem] shadow-2xl border border-white/50">
-          
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-8">
-            <div>
-               <span className="text-[#D4AF37] font-bold tracking-widest uppercase text-xs">Premium Service</span>
-               <h1 className="font-serif text-4xl md:text-5xl mt-2 text-[#2D2D2D]">{service.title}</h1>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-[#2D2D2D]">{service.price}</p>
-              <div className="flex items-center gap-2 text-gray-500 justify-end mt-1 font-medium">
-                <Clock size={16} /> {service.duration}
-              </div>
-            </div>
+      {/* 2. MAIN CONTENT AREA */}
+      <div className="max-w-7xl mx-auto px-6 -mt-32 relative z-10 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
+
+          {/* LEFT COLUMN */}
+          <div className="lg:col-span-2">
+             
+             {/* Header Card */}
+             <div className="bg-[#162b22]/90 backdrop-blur-xl border border-white/5 p-8 rounded-2xl mb-8 shadow-2xl">
+                <div className="flex flex-col gap-4">
+                  <span className="text-[#14b866] font-bold tracking-[0.2em] uppercase text-xs">
+                    {service.category || "Premium Treatment"}
+                  </span>
+                  <h1 className="text-4xl md:text-5xl font-light text-white leading-tight">
+                    {service.title}
+                  </h1>
+                  <p className="text-xl text-gray-300 font-light leading-relaxed border-l-2 border-[#14b866] pl-6 italic">
+                    {service.shortDescription}
+                  </p>
+                </div>
+             </div>
+
+             {/* Full Description */}
+             {service.fullDescription && (
+               <div className="bg-[#162b22]/50 border border-white/5 p-8 rounded-2xl mb-8">
+                 <h3 className="text-2xl font-light text-white mb-6 flex items-center gap-3">
+                   About This Service
+                 </h3>
+                 <div className="prose prose-invert prose-lg max-w-none text-gray-400 font-light prose-headings:text-white prose-a:text-[#14b866] prose-strong:text-white">
+                   <PortableText value={service.fullDescription} />
+                 </div>
+               </div>
+             )}
+
+             {/* VISUALS / GALLERY (Replaced with new Component) */}
+             <ServiceGallery gallery={service.gallery} />
+
           </div>
 
-          <hr className="border-gray-200 my-8" />
+          {/* RIGHT COLUMN: Sticky Booking Card */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-24">
+              <div className="bg-[#162b22] border border-[#14b866]/20 p-8 rounded-2xl shadow-[0_0_50px_-10px_rgba(20,184,102,0.1)]">
+                
+                <div className="text-center mb-8 pb-8 border-b border-white/5">
+                  <p className="text-gray-400 text-sm uppercase tracking-widest mb-2">Total Investment</p>
+                  <p className="text-4xl font-light text-white">
+                    {formatPrice(service.price)}
+                  </p>
+                </div>
 
-          {/* 3. DESCRIPTION */}
-          <div className="prose prose-lg text-gray-600 mb-12 max-w-none">
-            <p className="text-xl leading-relaxed">{service.shortDescription}</p>
-            {/* Render Full Description if it exists */}
-            {service.fullDescription && (
-              <div className="mt-6">
-                <PortableText value={service.fullDescription} />
+                <div className="space-y-6 mb-8">
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3 text-gray-300">
+                        <Clock className="text-[#14b866]" size={20} />
+                        <span>Duration</span>
+                     </div>
+                     <span className="font-medium text-white">{formatDuration(service.duration)}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3 text-gray-300">
+                        <Check className="text-[#14b866]" size={20} />
+                        <span>Consultation</span>
+                     </div>
+                     <span className="font-medium text-white">Included</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3 text-gray-300">
+                        <Check className="text-[#14b866]" size={20} />
+                        <span>Premium Products</span>
+                     </div>
+                     <span className="font-medium text-white">Yes</span>
+                  </div>
+                </div>
+
+                <a 
+                  href={waLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full bg-[#14b866] hover:bg-[#12a35a] text-white py-4 rounded-xl font-medium text-lg shadow-lg shadow-[#14b866]/20 hover:shadow-[#14b866]/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 group"
+                >
+                  <MessageCircle size={20} className="group-hover:animate-pulse" />
+                  Book Now
+                </a>
+                
+                <p className="text-center text-xs text-gray-500 mt-4 leading-relaxed">
+                  Bookings are confirmed upon deposit. <br/>Cancellation policy applies.
+                </p>
               </div>
-            )}
-          </div>
-
-          {/* 4. GALLERY */}
-          {service.galleryUrls && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-              {service.galleryUrls.map((url: string, i: number) => (
-                <img key={i} src={url} className="rounded-xl h-40 w-full object-cover hover:scale-105 transition duration-500 cursor-pointer shadow-sm" alt="Gallery" />
-              ))}
             </div>
-          )}
-
-          {/* 5. STICKY BOOKING ACTION */}
-          <div className="flex gap-4">
-             <a href={waLink} target="_blank" className="flex-1 bg-[#25D366] text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-green-500/30 hover:-translate-y-1 transition-all flex items-center justify-center gap-3">
-               <MessageCircle size={24} /> Book via WhatsApp
-             </a>
           </div>
 
         </div>

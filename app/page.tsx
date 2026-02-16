@@ -1,15 +1,35 @@
-import { client } from '@/sanity/lib/sanity'; 
+import { client } from '@/sanity/lib/sanity';
 import imageUrlBuilder from '@sanity/image-url';
-import InfoBarExpandable from '@/components/InfoBarExpandable'
-import { Playfair_Display, Inter } from 'next/font/google';
-import { MapPin, Phone, Clock, Star, Quote, MessageCircle, 
-  ChevronDown, ArrowUpRight, ArrowUp, Menu, 
-  Instagram, Youtube, Facebook, Music2 } from 'lucide-react';
+import AboutSection from '@/components/AboutSection'
+import GallerySection from '@/components/GallerySection'
+import ServicesSection from '@/components/ServicesSection'
+import ReviewSectionWrapper from '@/components/ReviewSectionWrapper'
+import InfoBarExpandable from '@/components/InfoBarExpandable';
+import MobileMenu from '@/components/MobileMenu';
+import {
+  MapPin, Clock, Phone, Star, Quote, MessageCircle,
+  ChevronDown, ArrowUpRight, ArrowUp, Menu,
+  Instagram, Youtube, Facebook, Music2, Camera, ArrowRight
+} from 'lucide-react';
 import Link from 'next/link';
 
-// --- FONTS ---
-const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+// REMOVED: import about from '@/sanity/schemaTypes/about'; 
+// (This line was the cause of your error!)
+
+type AboutData = {
+  title: string;
+  heading: string;
+  highlightWord: string;
+  mainText: string;
+  secondaryText: string;
+  founderName: string;
+  founderTitle: string;
+  founderInitial: string;
+  mediaType: 'image' | 'video';
+  aboutImage?: any;
+  aboutVideo?: string;
+}
 
 // --- SANITY IMAGE BUILDER ---
 const builder = imageUrlBuilder(client);
@@ -17,14 +37,42 @@ function urlFor(source: any) {
   return source ? builder.image(source).url() : "";
 }
 
-// --- DATA FETCHING ---
-export const revalidate = 10; 
+// --- DATA FETCHING (unchanged) ---
+export const revalidate = 10;
 
 async function getData() {
+ const about = await client.fetch(`
+  *[_type == "about"][0]{
+    title,
+    heading,
+    highlightWord,
+    mainText,
+    secondaryText,
+    founderName,
+    founderTitle,
+    founderInitial,
+    mediaType,
+    "aboutImage": aboutImage.asset->url,
+    aboutVideo
+  }
+`);
+const approvedReviews = await client.fetch(`
+  *[_type == "review" && status == "approved"] | order(reviewDate desc){
+    reviewerName,
+    rating,
+    reviewText,
+    serviceReceived
+  }
+`);
+
+
+  console.log('Fetched about:', JSON.stringify(about, null, 2));
+
   const business = await client.fetch(`*[_type == "business"][0]{
     ...,
     "heroImageUrl": heroImage.asset->url
   }`);
+  
   const services = await client.fetch(`*[_type == "service" && isActive == true] | order(_createdAt asc) {
     ...,
     "slug": slug.current,
@@ -32,20 +80,33 @@ async function getData() {
   }`);
   const testimonials = await client.fetch(`*[_type == "testimonial"] | order(_createdAt desc)`);
   const faqs = await client.fetch(`*[_type == "faq"] | order(_createdAt asc)`);
+  
+  // FIX 1: Updated query to handle null mediaType using coalesce
   const galleryImages = await client.fetch(`
     *[_type == "gallery" && isActive == true] | order(order asc, _createdAt asc) {
-      "imageUrl": image.asset->url
+      _id,
+      "mediaType": coalesce(mediaType, 'image'),
+      "image": image.asset->url,
+      video,
+      description,
+      category
     }
   `);
 
+  console.log('Gallery images from Sanity:', JSON.stringify(galleryImages, null, 2));
+
   return { 
     business, 
+    about, 
     services, 
+    approvedReviews,
     testimonials, 
     faqs, 
-    galleryImages: galleryImages.map((g: any) => g.imageUrl)
+    // FIX 2: Removed .map() so we return the full objects, not just strings
+    galleryImages 
   };
 }
+
 const buildSocialUrl = (input: string, platform: string) => {
   if (input.startsWith('http')) return input;
   switch (platform) {
@@ -57,110 +118,146 @@ const buildSocialUrl = (input: string, platform: string) => {
   }
 };
 
-
 export default async function Home() {
-  const { business, services, testimonials, faqs, galleryImages } = await getData();
+  // CORRECTED: Added 'about' to destructuring so we use the fetched data, not the schema
+  const { business, about, services, approvedReviews, faqs, galleryImages } = await getData();
 
-  if (!business) return <div className="p-20 text-center font-serif text-2xl text-white bg-black h-screen">Awaiting Sanity Data...</div>;
+  if (!business) return <div className="p-20 text-center font-serif text-2xl text-white bg-[#112119] h-screen">Awaiting Sanity Data...</div>;
 
   const waLink = `https://wa.me/${business.whatsapp}?text=Hello, I would like to book an appointment.`;
 
+  // Color palette from HTML
+  const colors = {
+    background: '#112119',
+    surface: '#162b22',
+    primary: '#14b866',
+  };
+
   return (
-    <main id="top" className={`${playfair.variable} ${inter.variable} font-sans bg-[#0A0A0A] min-h-screen text-white selection:bg-[#D4AF37] selection:text-black overflow-x-hidden relative`}>
-      
-      {/* Subtle noise overlay */}
-      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJmIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjc0IiBudW1PY3RhdmVzPSIzIiAvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNmKSIgb3BhY2l0eT0iMC4wNCIgLz48L3N2Zz4=')] pointer-events-none z-50 opacity-20 mix-blend-overlay" />
+  <main id="top" className="font-sans bg-[#112119] min-h-screen text-white selection:bg-[#14b866] selection:text-black overflow-x-hidden relative">
+
+      {/* Custom scrollbar */}
+      <style>{`
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #112119;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #14b866;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #109251;
+        }
+        .glass-nav {
+          background: rgba(17, 33, 25, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+      `}</style>
+
+{/* =======================
+    1. HEADER
+   ======================= */}
+<header className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-white/5 py-4 px-6 md:px-12 flex items-center justify-between">
+  {/* Logo with B icon and name - left side */}
+  <div className="flex items-center gap-2">
+    <div className="w-8 h-8 rounded-full bg-[#14b866] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+      {business.name?.charAt(0) || 'B'}
+    </div>
+    {/* Changed from font-black italic to font-cormorant with appropriate weight */}
+    <span className="font-cormorant font-medium text-xl md:text-2xl text-white tracking-[0.15em] uppercase whitespace-nowrap">
+      {business.name}
+    </span>
+  </div>
+
+  {/* Rest of your header remains exactly the same */}
+  <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-12">
+    {['Services', 'Gallery', 'Reviews', 'FAQ'].map((item) => (
+      <a
+        key={item}
+        href={`#${item.toLowerCase()}`}
+        className="text-xs font-bold text-white/80 hover:text-[#14b866] transition-colors uppercase tracking-[0.2em] relative group font-inter"
+      >
+        {item}
+        <span className="absolute -bottom-2 left-0 w-0 h-px bg-[#14b866] group-hover:w-full transition-all duration-300" />
+      </a>
+    ))}
+  </nav>
+
+  {/* CTA + Mobile Menu - right side */}
+  <div className="flex items-center gap-4">
+    <a
+      href={waLink}
+      className="hidden md:flex bg-[#14b866] hover:bg-[#14b866]/90 text-white px-6 py-2 rounded-full text-sm font-medium tracking-wide transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(20,184,102,0.3)] font-inter"
+    >
+      Book Appointment
+    </a>
+    
+    <MobileMenu waLink={waLink} />
+  </div>
+</header>
+
+{/* Add this style in your head or global css */}
+<style>{`
+  .glass-nav {
+    background: rgba(17, 33, 25, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+`}</style>
 
       {/* =======================
-          1. HEADER
-         ======================= */}
-      <header className="absolute top-0 left-0 right-0 z-50 py-6 px-6 md:px-12 flex items-center justify-between backdrop-blur-md bg-black/10 border-b border-white/5">
-        {/* Logo */}
-        <span className="font-serif font-black text-2xl text-white tracking-[0.2em] uppercase">
-          {business.name}
-        </span>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-12">
-          {['Services', 'Gallery', 'Reviews', 'FAQ'].map((item) => (
-            <a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              className="text-xs font-bold text-white/80 hover:text-[#D4AF37] transition-colors uppercase tracking-[0.2em] relative group"
-            >
-              {item}
-              <span className="absolute -bottom-2 left-0 w-0 h-px bg-[#D4AF37] group-hover:w-full transition-all duration-300" />
-            </a>
-          ))}
-        </nav>
-
-        {/* CTA + Mobile Menu */}
-        <div className="flex items-center gap-4">
-          <a
-            href={waLink}
-            className="hidden md:flex bg-transparent border border-[#D4AF37] text-[#D4AF37] px-8 py-3 rounded-full text-xs font-bold uppercase tracking-[0.2em] hover:bg-[#D4AF37] hover:text-black transition-all duration-300"
-          >
-            Book Now
-          </a>
-          <details className="md:hidden relative group">
-            <summary className="list-none cursor-pointer text-white p-2">
-              <Menu size={28} />
-            </summary>
-            <div className="absolute top-full right-0 mt-4 w-56 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-5 flex flex-col gap-3 z-50">
-              {['Services', 'Gallery', 'Reviews', 'FAQ'].map((item) => (
-                <a
-                  key={item}
-                  href={`#${item.toLowerCase()}`}
-                  className="text-sm font-medium text-white/80 hover:text-[#D4AF37] uppercase tracking-wider border-b border-white/5 pb-2 transition-colors"
-                >
-                  {item}
-                </a>
-              ))}
-              <a
-                href={waLink}
-                className="mt-2 bg-[#D4AF37] text-black px-5 py-3 rounded-full text-xs font-bold uppercase tracking-wider text-center"
-              >
-                Book Now
-              </a>
-            </div>
-          </details>
-        </div>
-      </header>
-
-      {/* =======================
-          2. HERO
+          2. MASSIVE HERO (with your dynamic tagline)
          ======================= */}
       <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
-        {/* Background media */}
         <div className="absolute inset-0 z-0">
-          {business.heroVideo ? (
-            <video src={business.heroVideo} autoPlay loop muted playsInline className="w-full h-full object-cover scale-105 opacity-60" />
-          ) : (
+          {business.heroImage ? (
             <img
-              src={business.heroImage ? urlFor(business.heroImage) : "/placeholder.jpg"}
-              className="w-full h-full object-cover scale-105 opacity-60 transition-transform duration-[20s] hover:scale-110"
+              src={urlFor(business.heroImage)}
+              alt="Luxurious salon"
+              className="w-full h-full object-cover"
             />
+          ) : (
+            <div className="w-full h-full bg-[#162b22]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#112119]/30 to-[#112119]/80 z-10" />
         </div>
 
-        <div className="relative z-10 text-center px-4 max-w-5xl mt-20">
-          <span className="inline-block px-4 py-2 mb-6 text-[0.7rem] font-bold uppercase tracking-[0.3em] text-[#D4AF37] border border-[#D4AF37]/30 rounded-full backdrop-blur-sm bg-black/20">
+        <div className="relative z-20 text-center px-4 max-w-4xl mx-auto">
+          {/* Keep your "Since 2024" badge but restyled */}
+          <span className="inline-block px-4 py-2 mb-6 text-[0.7rem] font-bold uppercase tracking-[0.3em] text-[#14b866] border border-[#14b866]/30 rounded-full backdrop-blur-sm bg-black/20">
             Since 2024
           </span>
-          <h1 className="font-serif text-7xl md:text-[8rem] text-white mb-6 leading-none tracking-tight">
-            {business.tagline || "Elegance Redefined."}
+          {/* Your dynamic tagline as main heading */}
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-light text-white mb-8 leading-tight">
+            {business.tagline || "Redefining Elegance"}
           </h1>
-          <p className="text-white/70 text-lg md:text-2xl font-light tracking-wide max-w-2xl mx-auto mb-12 drop-shadow-lg">
-            Premium beauty services curated for the modern aesthetic.
+          {/* Static paragraph from HTML (not in Sanity) */}
+          <p className="text-gray-300 text-lg md:text-xl font-light max-w-2xl mx-auto mb-10 leading-relaxed">
+            Experience world-class hair artistry in a sanctuary designed for the modern muse.
           </p>
-          <a
-            href="#services"
-            className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-white/30 text-white hover:bg-[#D4AF37] hover:border-[#D4AF37] hover:text-black transition-all duration-500 animate-pulse"
-          >
-            <ChevronDown size={24} />
-          </a>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <a
+              href={waLink}
+              className="bg-[#14b866] hover:bg-[#14b866]/90 text-white px-8 py-3 rounded-full text-base font-medium transition-all shadow-lg hover:shadow-[#14b866]/50"
+            >
+              Reserve Your Seat
+            </a>
+            <a
+              href="#services"
+              className="bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white px-8 py-3 rounded-full text-base font-medium transition-all"
+            >
+              Explore Services
+            </a>
+          </div>
+        </div>
+
+        {/* Scroll indicator (kept from original) */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 animate-bounce">
+          <ChevronDown className="text-white/50 text-3xl" size={32} />
         </div>
       </section>
 
@@ -171,414 +268,157 @@ export default async function Home() {
   workingDays={business.workingHours?.days}
   fallbackHours={business.hoursText || 'Mon - Sat: 8AM - 7PM'}
 />
-      {/* =======================
-          4. ABOUT – FINE ART DIPTYCH
-         ======================= */}
-      <section id="about" className="py-32 px-6 relative">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
-          <div className="order-2 md:order-1">
-            <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.3em] mb-6 block relative inline-block after:content-[''] after:absolute after:-bottom-3 after:left-0 after:w-12 after:h-px after:bg-[#D4AF37]/50">
-              Our Story
-            </span>
-            <h2 className="font-serif text-5xl md:text-7xl text-white mb-8 leading-[1.1]">
-              Mastery in <br />every detail.
-            </h2>
-            <p className="text-white/60 text-lg leading-relaxed mb-10 font-light">
-              {business.aboutText || "We believe beauty is an art form. Our studio provides an escape from the ordinary, offering highly personalized services in an environment of absolute luxury."}
-            </p>
-            <div className="flex gap-6">
-              <a
-                href="#services"
-                className="group relative px-8 py-4 bg-[#D4AF37] text-black font-bold uppercase tracking-[0.2em] text-xs rounded-full overflow-hidden transition-all duration-300 hover:bg-white hover:shadow-[0_10px_30px_-5px_rgba(212,175,55,0.5)]"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  Explore Menu <ArrowUpRight size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                </span>
-              </a>
-            </div>
-          </div>
-          <div className="order-1 md:order-2 relative">
-            <div className="aspect-[4/5] rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl">
-              <img
-                src={business.heroImage ? urlFor(business.heroImage) : "/placeholder.jpg"}
-                className="w-full h-full object-cover grayscale-0 md:grayscale md:hover:grayscale-0 transition-all duration-1000 scale-100 hover:scale-110"
-              />
-            </div>
-            {/* Decorative gold frame accent */}
-            <div className="absolute -top-6 -left-6 w-24 h-24 border-t-2 border-l-2 border-[#D4AF37]/30 rounded-tl-[3rem] pointer-events-none" />
-            <div className="absolute -bottom-6 -right-6 w-24 h-24 border-b-2 border-r-2 border-[#D4AF37]/30 rounded-br-[3rem] pointer-events-none" />
-          </div>
-        </div>
-      </section>
-{/* =======================
-    5. SERVICES – LUXURY CARD COLLECTION
-   ======================= */}
-<section id="services" className="relative py-28 md:py-40 px-6">
-  <div className="max-w-7xl mx-auto">
-    {/* Section header */}
-    <div className="text-center mb-24">
-      <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.3em] mb-3 block">
-        The Experience
-      </span>
-      <h2 className="font-serif text-6xl md:text-8xl text-white leading-none">
-        The Menu
-      </h2>
-      <div className="w-24 h-px bg-[#D4AF37]/50 mx-auto mt-6" />
-    </div>
+      
 
-    {/* Service cards – beautiful, contained, alternating */}
-    <div className="flex flex-col gap-20 md:gap-28">
-      {services.map((service: any, index: number) => (
-        <div
-          key={service._id}
-          className="group relative w-full max-w-6xl mx-auto"
-        >
-          {/* Card container – refined, floating, with subtle depth */}
-          <div
-            className={`
-              relative flex flex-col 
-              ${index % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'} 
-              items-stretch gap-0 lg:gap-8 xl:gap-12
-              bg-gradient-to-br from-[#111] to-black
-              rounded-3xl lg:rounded-[2rem]
-              border border-white/5
-              shadow-2xl shadow-black/50
-              overflow-hidden
-              transition-all duration-700
-              hover:border-[#D4AF37]/20 hover:shadow-[0_30px_50px_-15px_rgba(212,175,55,0.2)]
-            `}
-          >
-            {/* Image side – refined, not full‑bleed inside card */}
-            <div className="relative w-full lg:w-[48%] h-[350px] md:h-[500px] lg:h-[550px] overflow-hidden">
-              {/* Subtle overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
-              {service.imageUrl && (
-                <img
-                  src={service.imageUrl}
-                  alt={service.title}
-                  className="w-full h-full object-cover transition-all duration-[1.8s] group-hover:scale-110"
-                />
-              )}
-              {/* Elegant corner accent – gold, refined */}
-              <div className="absolute top-6 left-6 w-12 h-12 border-t-2 border-l-2 border-[#D4AF37]/40 z-20 rounded-tl-2xl" />
-              <div className="absolute bottom-6 right-6 w-12 h-12 border-b-2 border-r-2 border-[#D4AF37]/40 z-20 rounded-br-2xl" />
-            </div>
-
-            {/* Content side – perfectly balanced */}
-            <div className="relative w-full lg:w-[52%] flex items-center p-8 md:p-12 lg:p-16">
-              <div className="relative z-30">
-                {/* Category badge – refined */}
-                <span className="inline-block px-5 py-2 mb-6 text-[0.65rem] font-bold uppercase tracking-[0.25em] text-[#D4AF37] bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-full">
-                  {service.category || "Signature Service"}
-                </span>
-
-                {/* Title – elegant serif */}
-                <h3 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white mb-6 leading-tight">
-                  {service.title}
-                </h3>
-
-                {/* Description – light, airy */}
-                <p className="text-white/60 text-base md:text-lg font-light mb-8 leading-relaxed">
-                  {service.shortDescription}
-                </p>
-
-                {/* Price & Duration – luxurious details */}
-                <div className="flex items-center gap-6 md:gap-10 mb-10 pb-8 border-b border-white/10">
-                  <div>
-                    <span className="block text-xs text-white/40 uppercase tracking-wider mb-1">
-                      Investment
-                    </span>
-                    <span className="text-2xl md:text-3xl font-serif text-[#D4AF37]">
-                      {service.price}
-                    </span>
-                  </div>
-                  <div className="w-px h-10 bg-white/10" />
-                  <div>
-                    <span className="block text-xs text-white/40 uppercase tracking-wider mb-1">
-                      Duration
-                    </span>
-                    <span className="text-white/80 font-light text-base md:text-lg">
-                      {service.duration}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions – refined, confident */}
-                <div className="flex flex-wrap items-center gap-4 md:gap-6">
-                  <Link
-                    href={`/services/${service.slug}`}
-                    className="group/btn relative px-8 py-4 bg-[#D4AF37] text-black font-bold uppercase tracking-[0.2em] text-xs rounded-full overflow-hidden transition-all duration-300 hover:bg-white hover:shadow-[0_10px_30px_-5px_rgba(212,175,55,0.5)]"
-                  >
-                    <span className="relative z-10 flex items-center gap-2">
-                      Discover <ArrowUpRight size={16} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
-                    </span>
-                  </Link>
-                  <a
-                    href={`${waLink}&text=I would like to book the ${service.title} service.`}
-                    className="flex items-center gap-2 text-white/70 hover:text-[#D4AF37] uppercase tracking-widest text-xs font-medium transition-colors border-b border-white/20 pb-0.5"
-                  >
-                    Book via WhatsApp
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
+    {/* About Section */}
+    {about && <AboutSection data={about} />}
 
      {/* =======================
-          6. GALLERY – CURATED COLLAGE
+        5. SERVICES (NEW COMPONENT)
+       ======================= */}
+    <ServicesSection services={services} waLink={waLink} />
+
+      {/* =======================
+          6. GALLERY – LOOKBOOK (masonry from HTML)
          ======================= */}
-      <section id="gallery" className="py-32 px-6 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-[#0A0A0A] to-black" />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-20">
-            <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.3em] mb-3 block">Portfolio</span>
-            <h2 className="font-serif text-5xl md:text-7xl text-white">Our Work</h2>
-            <div className="w-20 h-px bg-[#D4AF37]/40 mx-auto mt-6" />
-          </div>
+    <GallerySection 
+      items={galleryImages} 
+      instagramUrl={buildSocialUrl(business.socialLinks?.instagram || '#', 'instagram')}
+    />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 auto-rows-[200px] md:auto-rows-[280px]">
-            {galleryImages.slice(0, 8).map((img: string, i: number) => {
-              let span = '';
-              if (i === 0) span = 'md:col-span-2 md:row-span-2';
-              if (i === 2) span = 'md:col-span-1 md:row-span-2';
-              if (i === 4) span = 'md:col-span-2';
-              if (i === 6) span = 'md:col-span-1 md:row-span-2';
-              if (i === 7) span = 'md:col-span-2';
+ <ReviewSectionWrapper reviews={approvedReviews} />
 
-              // FIX: Clean className interpolation to prevent trailing whitespace hydration errors
-              const containerClasses = span 
-                ? `relative group overflow-hidden rounded-2xl h-full ${span}`
-                : "relative group overflow-hidden rounded-2xl h-full";
+      {/* =======================
+          8. FAQ – SINGLE COLUMN ACCORDION
+         ======================= */}
+      <section id="faq" className="py-24 px-6 max-w-3xl mx-auto">
+        <div className="text-center mb-12">
+          <h4 className="text-[#14b866] text-sm uppercase tracking-[0.2em] mb-4">Inquiries</h4>
+          <h2 className="text-3xl font-light text-white">Frequently Asked</h2>
+        </div>
 
-              return (
-                <div key={i} className={containerClasses}>
-                  <img
-                    src={img}
-                    alt={`Gallery ${i + 1}`}
-                    className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500" />
-                  <div className="absolute inset-x-0 bottom-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-500">
-                    <span className="text-white text-sm font-medium uppercase tracking-wider border-b border-[#D4AF37] pb-1">
-                      View Project
-                    </span>
-                  </div>
-                  <div className="absolute top-4 left-4 w-6 h-6 border-t border-l border-[#D4AF37]/0 group-hover:border-[#D4AF37]/70 transition-all duration-500" />
-                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r border-[#D4AF37]/0 group-hover:border-[#D4AF37]/70 transition-all duration-500" />
-                </div>
-              );
-            })}
-          </div>
-          {galleryImages.length === 0 && (
-            <p className="text-center text-white/40 mt-20">No gallery images available.</p>
-          )}
+        <div className="space-y-4">
+          {faqs.map((faq: any) => (
+            <details key={faq._id} className="group bg-[#162b22] rounded-lg border border-white/5 open:border-[#14b866]/30 transition-all duration-300">
+              <summary className="flex justify-between items-center cursor-pointer p-6 list-none">
+                <span className="text-lg text-white font-light group-hover:text-[#14b866] transition-colors">
+                  {faq.question}
+                </span>
+                <span className="transition group-open:rotate-180 text-gray-400 group-hover:text-white">
+                  <ChevronDown size={20} />
+                </span>
+              </summary>
+              <div className="text-gray-400 px-6 pb-6 pt-0 font-light leading-relaxed">
+                {faq.answer}
+              </div>
+            </details>
+          ))}
         </div>
       </section>
 
       {/* =======================
-          7. REVIEWS – PRESTIGE TESTIMONIALS
+          9. FOOTER – YOUR ORIGINAL STRUCTURE, NEW GREEN STYLING
          ======================= */}
-      <section id="reviews" className="py-32 px-6">
+      <footer className="bg-[#0b1611] pt-24 pb-12 px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16">
-            <div>
-              <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.3em] mb-3 block relative inline-block after:content-[''] after:absolute after:-bottom-3 after:left-0 after:w-12 after:h-px after:bg-[#D4AF37]/50">
-                Clientele
-              </span>
-              <h2 className="font-serif text-5xl md:text-7xl text-white">Words of Praise</h2>
-            </div>
-            <span className="hidden md:block text-white/20 text-sm uppercase tracking-[0.3em]">Since 2024</span>
-          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((t: any, i: number) => (
-              <div
-                key={i}
-                className="group relative bg-gradient-to-br from-[#111] to-black p-10 rounded-3xl border border-white/5 hover:border-[#D4AF37]/30 transition-all duration-500 hover:shadow-[0_20px_40px_-15px_rgba(212,175,55,0.2)] hover:-translate-y-2"
-                style={{ transitionDelay: `${i * 50}ms` }}
-              >
-                <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-700" />
-                <Quote className="text-[#D4AF37] opacity-30 w-10 h-10 mb-6" />
-                <div className="flex gap-1 mb-6">
-                  {[...Array(t.rating || 5)].map((_, idx) => (
-                    <Star key={idx} size={16} fill="#D4AF37" stroke="#D4AF37" />
-                  ))}
+            {/* Brand */}
+            <div>
+              <h2 className="font-light text-4xl mb-6 tracking-[0.1em] uppercase text-white">{business.name}</h2>
+              <p className="text-gray-500 font-light leading-relaxed max-w-sm">
+                An exclusive destination for those who appreciate the finer details of beauty and wellness.
+              </p>
+            </div>
+
+            {/* Location (with map iframe) */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#14b866]">Location</h3>
+              <p className="text-gray-400 text-sm mb-4">{business.location || 'Downtown'}</p>
+              {business.googleMapsUrl && (
+                <div className="h-32 w-full overflow-hidden rounded-lg border border-white/10">
+                  <iframe
+                    src={business.googleMapsUrl}
+                    className="w-full h-full"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
                 </div>
-                <p className="text-white/70 text-lg italic mb-10 leading-relaxed font-light">"{t.quote}"</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/50 flex items-center justify-center">
-                    <span className="text-[#D4AF37] font-serif text-xl">{t.clientName?.charAt(0) || 'C'}</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-white uppercase tracking-widest text-sm">{t.clientName}</p>
-                    <p className="text-xs text-white/40 uppercase tracking-wider mt-1">{t.serviceTaken}</p>
-                  </div>
+              )}
+            </div>
+
+            {/* Connect */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#14b866]">Connect</h3>
+              <div className="space-y-3 text-gray-400 font-light text-sm">
+                <a
+                  href={`https://wa.me/${business.whatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-[#14b866] transition-colors"
+                >
+                  <MessageCircle size={18} />
+                  <span>WhatsApp</span>
+                </a>
+                <a
+                  href={`tel:+${business.whatsapp}`}
+                  className="flex items-center gap-2 hover:text-[#14b866] transition-colors"
+                >
+                  <Phone size={18} />
+                  <span>Call us</span>
+                </a>
+                <div className="flex gap-4 pt-3">
+                  {business.socialLinks?.instagram && (
+                    <a href={buildSocialUrl(business.socialLinks.instagram, 'instagram')} className="text-gray-400 hover:text-[#14b866] transition">
+                      <Instagram size={20} />
+                    </a>
+                  )}
+                  {business.socialLinks?.facebook && (
+                    <a href={buildSocialUrl(business.socialLinks.facebook, 'facebook')} className="text-gray-400 hover:text-[#14b866] transition">
+                      <Facebook size={20} />
+                    </a>
+                  )}
+                  {business.socialLinks?.youtube && (
+                    <a href={buildSocialUrl(business.socialLinks.youtube, 'youtube')} className="text-gray-400 hover:text-[#14b866] transition">
+                      <Youtube size={20} />
+                    </a>
+                  )}
+                  {business.socialLinks?.tiktok && (
+                    <a href={buildSocialUrl(business.socialLinks.tiktok, 'tiktok')} className="text-gray-400 hover:text-[#14b866] transition">
+                      <Music2 size={20} />
+                    </a>
+                  )}
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Explore */}
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#14b866]">Explore</h3>
+              <div className="flex flex-col gap-3 text-gray-400 font-light text-sm">
+                <a href="#services" className="hover:text-white transition-colors">Menu</a>
+                <a href="#gallery" className="hover:text-white transition-colors">Gallery</a>
+                <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-600 tracking-widest uppercase">
+            <p>© {new Date().getFullYear()} {business.name}. All rights reserved.</p>
+            <p className="mt-4 md:mt-0">Built in Embu — Luxury Edition</p>
           </div>
         </div>
-      </section>
+      </footer>
 
       {/* =======================
-          8. FAQ – TWO‑COLUMN ACCORDION
-         ======================= */}
-      <section id="faq" className="py-32 px-6 bg-black border-t border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <span className="text-[#D4AF37] text-xs font-bold uppercase tracking-[0.3em] mb-3 block">Inquiries</span>
-            <h2 className="font-serif text-5xl md:text-7xl text-white">Common Questions</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-x-16 gap-y-4">
-            {faqs?.map((faq: any, i: number) => (
-              <details key={i} className="group border-b border-white/10 py-6 open:border-[#D4AF37]/30 transition-colors">
-                <summary className="flex items-center justify-between cursor-pointer list-none text-lg md:text-xl font-serif text-white/90 hover:text-[#D4AF37] transition-colors">
-                  <span>{faq.question}</span>
-                  <div className="relative w-5 h-5 flex items-center justify-center">
-                    <span className="absolute w-5 h-px bg-current transition-transform duration-300 group-open:rotate-180" />
-                    <span className="absolute w-px h-5 bg-current transition-transform duration-300 group-open:rotate-180 group-open:opacity-0" />
-                  </div>
-                </summary>
-                <div className="pt-6 pr-8 text-white/50 font-light leading-relaxed">
-                  {faq.answer}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-    {/* =======================
-    9. FOOTER – SIGNATURE (with dynamic social URLs)
-   ======================= */}
-<footer className="relative bg-[#050505] text-white pt-32 pb-12 border-t border-white/10">
-  <div className="max-w-7xl mx-auto px-6">
-    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-      
-      {/* Brand */}
-      <div>
-        <h2 className="font-serif text-4xl mb-6 tracking-[0.1em] uppercase text-white">{business.name}</h2>
-        <p className="text-white/40 font-light leading-relaxed max-w-sm">
-          An exclusive destination for those who appreciate the finer details of beauty and wellness.
-        </p>
-      </div>
-
-      {/* Location */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#D4AF37]">Location</h3>
-        <p className="text-white/60 text-sm mb-4">{business.location || 'Downtown'}</p>
-        {business.googleMapsUrl && (
-          <div className="h-32 w-full overflow-hidden rounded-lg border border-white/10">
-            <iframe
-              src={business.googleMapsUrl}
-              className="w-full h-full"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Connect – WhatsApp, Call, Socials */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#D4AF37]">Connect</h3>
-        <div className="space-y-3 text-white/60 font-light text-sm">
-          {/* WhatsApp link */}
-          <a
-            href={`https://wa.me/${business.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:text-[#D4AF37] transition-colors"
-          >
-            <MessageCircle size={18} />
-            <span>WhatsApp</span>
-          </a>
-          {/* Call link */}
-          <a
-            href={`tel:+${business.whatsapp}`}
-            className="flex items-center gap-2 hover:text-[#D4AF37] transition-colors"
-          >
-            <Phone size={18} />
-            <span>Call us</span>
-          </a>
-          {/* Social icons – build URLs from usernames */}
-          <div className="flex gap-4 pt-3">
-            {business.socialLinks?.instagram && (
-              <a
-                href={buildSocialUrl(business.socialLinks.instagram, 'instagram')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/40 hover:text-[#D4AF37] transition"
-              >
-                <Instagram size={20} />
-              </a>
-            )}
-            {business.socialLinks?.facebook && (
-              <a
-                href={buildSocialUrl(business.socialLinks.facebook, 'facebook')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/40 hover:text-[#D4AF37] transition"
-              >
-                <Facebook size={20} />
-              </a>
-            )}
-            {business.socialLinks?.youtube && (
-              <a
-                href={buildSocialUrl(business.socialLinks.youtube, 'youtube')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/40 hover:text-[#D4AF37] transition"
-              >
-                <Youtube size={20} />
-              </a>
-            )}
-            {business.socialLinks?.tiktok && (
-              <a
-                href={buildSocialUrl(business.socialLinks.tiktok, 'tiktok')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white/40 hover:text-[#D4AF37] transition"
-              >
-                <Music2 size={20} />
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Explore */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-[0.3em] mb-6 text-[#D4AF37]">Explore</h3>
-        <div className="flex flex-col gap-3 text-white/60 font-light text-sm">
-          <a href="#services" className="hover:text-white transition-colors">Menu</a>
-          <a href="#gallery" className="hover:text-white transition-colors">Gallery</a>
-          <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-        </div>
-      </div>
-    </div>
-
-    <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-white/30 tracking-widest uppercase">
-      <p>© {new Date().getFullYear()} {business.name}. All rights reserved.</p>
-      <p className="mt-4 md:mt-0">Built in Embu — Luxury Edition</p>
-    </div>
-  </div>
-</footer>
-      {/* =======================
-          FLOATING ACTIONS – GLASS MORPHISM
+          FLOATING ACTIONS (kept from original)
          ======================= */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4">
         <a
           href="#top"
-          className="group bg-white/5 backdrop-blur-lg border border-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-[#D4AF37] hover:text-black hover:border-transparent transition-all duration-300 shadow-2xl"
+          className="group bg-white/5 backdrop-blur-lg border border-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-[#14b866] hover:text-black hover:border-transparent transition-all duration-300 shadow-2xl"
         >
           <ArrowUp size={20} className="group-hover:-translate-y-1 transition-transform" />
         </a>
