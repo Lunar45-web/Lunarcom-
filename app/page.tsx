@@ -215,11 +215,14 @@ export default async function Home() {
       <section className="relative h-screen w-full flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           {business.heroImage ? (
-            <img
-              src={urlFor(business.heroImage)}
-              alt="Luxurious salon"
-              className="w-full h-full object-cover"
-            />
+
+<img
+  src={builder.image(business.heroImage).width(1920).auto('format').url()}
+  alt="Luxurious salon"
+  className="w-full h-full object-cover"
+  loading="eager"
+  fetchPriority="high"
+/>
           ) : (
             <div className="w-full h-full bg-[#162b22]" />
           )}
