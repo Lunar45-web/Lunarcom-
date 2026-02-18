@@ -18,9 +18,20 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://salon45.vercel.app'),
   title: "Premium Salon | Premium Beauty",
   description: "Luxury beauty services and wellness.",
+  // 2. EXPLICIT OPEN GRAPH CONFIGURATION
+  openGraph: {
+    title: "Premium Salon | Premium Beauty",
+    description: "Luxury beauty services and wellness.",
+    url: '/', // Uses the metadataBase to form the full URL
+    siteName: 'Premium Salon',
+    locale: 'en_US',
+    type: 'website',
+  },
 };
+
 
 export default function RootLayout({
   children,
