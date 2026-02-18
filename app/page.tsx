@@ -70,6 +70,9 @@ const approvedReviews = await client.fetch(`
 
   const business = await client.fetch(`*[_type == "business"][0]{
     ...,
+    location,
+  mapQuery, // ADD THIS LINE HERE
+  googleMapsUrl,
     "heroImageUrl": heroImage.asset->url
   }`);
   
@@ -267,6 +270,7 @@ export default async function Home() {
 <InfoBarExpandable
   location={business.location}
   googleMapsUrl={business.googleMapsUrl}
+  mapQuery={business.mapQuery} // ADD THIS LINE HERE
   whatsapp={business.whatsapp}
   workingDays={business.workingHours?.days}
   fallbackHours={business.hoursText || 'Mon - Sat: 8AM - 7PM'}

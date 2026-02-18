@@ -13,6 +13,7 @@ interface DaySchedule {
 
 interface Props {
   location: string
+  mapQuery?: string // NEW PROP
   googleMapsUrl?: string
   whatsapp: string
   workingDays?: DaySchedule[]
@@ -21,6 +22,7 @@ interface Props {
 
 export default function InfoBarExpandable({
   location,
+  mapQuery, // DESTRUCTURE NEW PROP
   googleMapsUrl,
   whatsapp,
   workingDays,
@@ -29,7 +31,15 @@ export default function InfoBarExpandable({
   const [expanded, setExpanded] = useState(false)
   const [currentStatus, setCurrentStatus] = useState({ isOpen: false, text: 'Closed' })
 
-  // --- FIX: USE MEMO TO PREVENT INFINITE LOOP ---
+  // --- MAP SEARCH LOGIC ---
+  // If mapQuery exists (e.g. "Wanjau Technical Institute"), use it.
+  // Otherwise fall back to the location name (e.g. "Embu Town").
+  const mapSearchTerm = mapQuery || location || 'Embu Town';
+  
+  // Create a clean Google Maps Search URL
+  const mapSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSearchTerm)}`;
+
+  // --- MEMOIZED DAYS TO PREVENT INFINITE LOOP ---
   const sortedDays = useMemo(() => {
     const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     return workingDays
@@ -72,7 +82,6 @@ export default function InfoBarExpandable({
       const todaySchedule = sortedDays.find(d => d.day === currentDay)
 
       if (!todaySchedule) {
-        // Only update if state actually changes to avoid unnecessary renders
         setCurrentStatus(prev => prev.text === 'Hours not set' ? prev : { isOpen: false, text: 'Hours not set' })
         return
       }
@@ -95,7 +104,6 @@ export default function InfoBarExpandable({
         
         const newText = isOpenNow ? 'Open Now' : 'Closed Now'
         
-        // Only update if changed
         setCurrentStatus(prev => prev.text === newText ? prev : { isOpen: isOpenNow, text: newText })
       } else {
         setCurrentStatus(prev => prev.text === 'Call for hours' ? prev : { isOpen: false, text: 'Call for hours' })
@@ -105,62 +113,59 @@ export default function InfoBarExpandable({
     checkIfOpen()
     const interval = setInterval(checkIfOpen, 60000)
     return () => clearInterval(interval)
-  }, [sortedDays]) // Now safe because sortedDays is memoized
+  }, [sortedDays])
 
   return (
     <section className="relative z-30 -mt-8 mx-4 md:mx-auto max-w-6xl">
       <div className="bg-[#162b22]/95 backdrop-blur-md rounded-xl shadow-2xl border border-white/5 p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-white/10">
         
-      {/* =======================
-    1. LOCATION
-   ======================= */}
-<div className="flex items-start gap-4 pt-4 md:pt-0">
-  <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-    <MapPin className="text-[#14b866]" size={24} />
-  </div>
-  <div className="flex-1 flex flex-col h-full">
-    <h3 className="text-white font-medium mb-1">Visit Us</h3>
-    <p className="text-gray-400 text-sm mb-4">{location || 'Downtown'}</p>
-    
-    {googleMapsUrl ? (
-      <div className="flex-grow flex flex-col">
-        <div className="relative w-full flex-grow min-h-[100px] rounded-lg overflow-hidden border border-white/10 group">
-          {/* IFRAME: Uses the Embed URL (Keep this as is) */}
-          <iframe
-            src={googleMapsUrl}
-            className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity duration-500"
-            style={{ border: 0 }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-          
-          {/* LINK: Uses a Search Query based on your Location Name */}
-          <a 
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="absolute inset-0 z-10 bg-black/10 group-hover:bg-transparent transition-colors cursor-pointer"
-            aria-label="Open in Google Maps"
-          />
+        {/* =======================
+            1. LOCATION
+           ======================= */}
+        <div className="flex items-start gap-4 pt-4 md:pt-0">
+          <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+            <MapPin className="text-[#14b866]" size={24} />
+          </div>
+          <div className="flex-1 flex flex-col h-full">
+            <h3 className="text-white font-medium mb-1">Visit Us</h3>
+            <p className="text-gray-400 text-sm mb-4">{location || 'Downtown'}</p>
+            
+            {googleMapsUrl ? (
+              <div className="flex-grow flex flex-col">
+                <div className="relative w-full flex-grow min-h-[100px] rounded-lg overflow-hidden border border-white/10 group">
+                  <iframe
+                    src={googleMapsUrl}
+                    className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                  {/* OVERLAY LINK (Using mapSearchUrl) */}
+                  <a 
+                    href={mapSearchUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 z-10 bg-black/10 group-hover:bg-transparent transition-colors cursor-pointer"
+                    aria-label="Open in Google Maps"
+                  />
+                </div>
+                {/* TEXT LINK (Using mapSearchUrl) */}
+                <a
+                  href={mapSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#14b866] text-sm hover:text-white transition-colors flex items-center gap-2 mt-3 font-medium w-fit"
+                >
+                  View on Google Maps <ExternalLink size={14} />
+                </a>
+              </div>
+            ) : (
+              <div className="h-24 w-full bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-white/30 text-xs">
+                Map not available
+              </div>
+            )}
+          </div>
         </div>
-        
-        {/* TEXT LINK: Same Search Query */}
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#14b866] text-sm hover:text-white transition-colors flex items-center gap-2 mt-3 font-medium w-fit"
-        >
-          View on Google Maps <ExternalLink size={14} />
-        </a>
-      </div>
-    ) : (
-      <div className="h-24 w-full bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-white/30 text-xs">
-        Map not available
-      </div>
-    )}
-  </div>
-</div>
 
         {/* =======================
             2. HOURS

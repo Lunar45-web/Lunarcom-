@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Brenda Salon | Premium Beauty",
+  title: "Premium Salon | Premium Beauty",
   description: "Luxury beauty services and wellness.",
 };
 
