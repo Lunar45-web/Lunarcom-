@@ -32,6 +32,42 @@ export const metadata: Metadata = {
   },
 };
 
+// --- START OF JSON-LD SCHEMA ---
+// Edit these details per client to feed exact data to Google AI
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BeautySalon", // Tells Google exactly what type of business this is
+  "name": "Premium Salon",
+  "image": "https://salon45.vercel.app/opengraph-image.png",
+  "@id": "https://salon45.vercel.app",
+  "url": "https://salon45.vercel.app",
+  "telephone": "+254700000000",
+  "priceRange": "$$", // $$ means moderate pricing, $$$ is high-end
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Dallas Area",
+    "addressLocality": "Embu",
+    "addressRegion": "Embu County",
+    "postalCode": "60100",
+    "addressCountry": "KE"
+  },
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "opens": "08:00",
+      "closes": "20:00"
+    }
+  ]
+};
+// --- END OF JSON-LD SCHEMA ---
 
 export default function RootLayout({
   children,
@@ -41,6 +77,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${cormorant.variable} ${inter.variable}`}>
       <body className="antialiased">
+        {/* Injecting the Schema into the DOM for Google to read */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         {children}
       </body>
     </html>

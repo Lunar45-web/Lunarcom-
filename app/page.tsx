@@ -412,10 +412,25 @@ export default async function Home() {
             </div>
           </div>
 
-          <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-600 tracking-widest uppercase">
-            <p>© {new Date().getFullYear()} {business.name}. All rights reserved.</p>
-            <p className="mt-4 md:mt-0">Built in Embu — Luxury Edition</p>
-          </div>
+<div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs tracking-widest uppercase">
+  {/* White / Champagne color for the copyright text */}
+  <p className="text-white/80">
+    © {new Date().getFullYear()} {business.name}. All rights reserved.
+  </p>
+  
+  {/* Champagne color for the "Built By" text */}
+  <p className="mt-4 md:mt-0 text-[#F7E7CE]">
+    Built By{' '}
+    <a 
+      href="https://wa.me/254758207324?text=Hi%20LunarCom,%20I'm%20interested%20in%20a%20luxury%20website%20similar%20to%20the%20one%20you%20built%20for%20this%20salon!" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+     className="text-[#D4AF37]/60 font-medium underline underline-offset-4 transition-all duration-300 cursor-pointer hover:text-[#14b866] hover:text-opacity-100 hover:decoration-[#14b866]"
+    >
+      LunarCom — Luxury Edition
+    </a>
+  </p>
+</div>
         </div>
       </footer>
 
