@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
+import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 
 // Elegant font for salon name and headings
@@ -81,6 +82,12 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <NextTopLoader
+          color="#14b866"
+          height={3}
+          showSpinner={false}
+          shadow="true"
         />
         {children}
       </body>
