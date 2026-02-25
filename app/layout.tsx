@@ -1,7 +1,7 @@
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
-import { headers } from "next/headers"; // 👈 New import
-import { getSalonData } from "@/sanity/lib/client"; // 👈 Your new engine
+import { headers } from "next/headers"; 
+import { getSalonData } from "@/sanity/lib/client"; 
 import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 
@@ -19,17 +19,17 @@ const inter = Inter({
 });
 
 // --- DYNAMIC METADATA ENGINE ---
-// This replaces your static export const metadata
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
+  // Fixed: Getting the actual injected domain header
   const domain = headersList.get("x-site-domain") || "localhost:3000";
   const salon = await getSalonData(domain);
 
   if (!salon) return { title: "Salon Not Found" };
 
   return {
-    title: `${salon.name} | ${salon.tagline}`,
-    description: `Luxury beauty services at ${salon.location}.`,
+    title: `${salon.name} | ${salon.tagline || 'Luxury Salon'}`,
+    description: salon.description || `Luxury beauty services at ${salon.location}.`,
     openGraph: {
       title: salon.name,
       description: salon.tagline,
@@ -47,70 +47,96 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // 1. Get the domain and salon data
+  // 1. Get the domain and current path from headers
   const headersList = await headers();
   const domain = headersList.get("x-site-domain") || "localhost:3000";
+  const currentPath = headersList.get("x-pathname") || "/";
+  
+  // 2. Fetch salon data
   const salon = await getSalonData(domain);
 
-  // Fallback if salon isn't found (prevents crash)
-  if (!salon) {
+  // 3. IF NO SALON IS FOUND: 
+  // We show the "Setup" screen ONLY if the user isn't already trying to go to the studio.
+  if (!salon && !currentPath.startsWith('/studio')) {
     return (
       <html lang="en">
-        <body><div className="flex h-screen items-center justify-center">Salon Setup Pending...</div></body>
+        <body className={`${inter.className} bg-[#112119] flex h-screen items-center justify-center text-white`}>
+          <div className="text-center p-8 border border-white/10 rounded-3xl bg-white/5 backdrop-blur-md max-w-md">
+            <h1 className="text-3xl font-light mb-4 font-serif">Salon Setup Required</h1>
+            <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+              We couldn't find a salon configuration for <span className="text-[#14b866] font-mono">{domain}</span>. 
+              Log in to the studio to create your business profile.
+            </p>
+            <a 
+              href="/studio" 
+              className="inline-block bg-white text-black px-8 py-3 rounded-full text-xs uppercase tracking-[0.2em] font-bold hover:bg-[#14b866] hover:text-white transition-all"
+            >
+              Open Studio
+            </a>
+          </div>
+        </body>
       </html>
     );
   }
 
-  // 2. Build the Dynamic JSON-LD (Schema.org)
-  const jsonLd = {
+  // 4. PREPARE DISPLAY DATA:
+  // If we are in the studio, salon might be null, so we use fallbacks to prevent crashes.
+  const displaySalon = salon || {
+    name: "Salon Studio",
+    primaryColor: "#14b866",
+    secondaryColor: "#000000",
+    whatsapp: "",
+    location: ""
+  };
+
+  // 5. BUILD JSON-LD
+  const jsonLd = salon ? {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
-    "name": salon.name,
+    "name": displaySalon.name,
     "url": `https://${domain}`,
-    "telephone": salon.whatsapp,
+    "telephone": displaySalon.whatsapp,
     "priceRange": "$$",
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": salon.location,
+      "streetAddress": displaySalon.location,
       "addressCountry": "KE"
     },
-    // We map your dynamic working hours from Sanity to Google's format
-    "openingHoursSpecification": salon.workingHours?.days?.map((d: any) => ({
+    "openingHoursSpecification": displaySalon.workingHours?.days?.map((d: any) => ({
       "@type": "OpeningHoursSpecification",
       "dayOfWeek": d.day.charAt(0).toUpperCase() + d.day.slice(1),
       "opens": d.open || "08:00",
       "closes": d.close || "20:00"
     }))
-  };
+  } : null;
 
   return (
     <html 
       lang="en" 
       className={`${cormorant.variable} ${inter.variable}`}
-      // 3. THE BRANDING ENGINE: Inject CSS variables globally
+      // Injecting brand colors as CSS variables
       style={{
         // @ts-ignore
-        "--primary": salon.primaryColor || "#D4AF37",
-        "--secondary": salon.secondaryColor || "#000000",
+        "--primary": displaySalon.primaryColor || "#14b866",
+        // @ts-ignore
+        "--secondary": displaySalon.secondaryColor || "#000000",
       }}
     >
-      <body className="antialiased">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+      <body className="antialiased bg-[#112119]">
+        {jsonLd && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          />
+        )}
         
         <NextTopLoader
-          // 4. Use the dynamic primary color for the progress bar
-          color={salon.primaryColor || "#14b866"}
+          color={displaySalon.primaryColor || "#14b866"}
           height={3}
           showSpinner={false}
-          shadow="true"
+          shadow="0 0 10px var(--primary),0 0 5px var(--primary)"
         />
 
-        {/* Now, every component inside {children} can use 
-           className="text-[var(--primary)]" or "bg-[var(--primary)]"
-        */}
         {children}
       </body>
     </html>
