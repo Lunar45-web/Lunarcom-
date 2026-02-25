@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const [salon, setSalon] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [domain, setDomain] = useState<string>('');
+  const [currentDomain, setCurrentDomain] = useState<string>('');
 
   const isStudio = pathname?.startsWith('/studio');
 
@@ -35,9 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         return;
       }
       try {
-        const domainValue = window.location.host.replace('www.', '');
-        setDomain(domainValue);
-        const data = await getSalonData(domainValue);
+        // IMPROVED: More robust domain detection
+        const host = window.location.host.replace('www.', '');
+        setCurrentDomain(host); // Set exactly what the browser sees
+        
+        const data = await getSalonData(host);
         setSalon(data);
       } catch (error) {
         console.error("Error fetching salon:", error);
@@ -56,22 +58,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // --- REFINED SETUP SCREEN (Luxury Aesthetic) ---
+  // --- LUXURY SETUP SCREEN (Fixed Visibility) ---
   if (!salon && !isStudio) {
     return (
       <html lang="en" className={`${cormorant.variable} ${inter.variable}`}>
         <body className="bg-[#112119] flex h-screen items-center justify-center text-white p-6 antialiased">
-          <div className="relative group overflow-hidden text-center p-12 border border-white/10 rounded-[2.5rem] bg-white/5 backdrop-blur-2xl max-w-md shadow-2xl">
-            {/* Soft Glow Effect */}
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-[#14b866]/20 rounded-full blur-[80px]" />
-            
-            <h1 className="text-4xl font-light mb-6 font-serif tracking-tight">
+          <div className="relative overflow-hidden text-center p-12 border border-white/10 rounded-[2.5rem] bg-white/5 backdrop-blur-2xl max-w-md shadow-2xl">
+            <h1 className="text-4xl font-light mb-6 font-serif tracking-tight text-white">
               Salon <span className="text-[#14b866]">Setup</span>
             </h1>
             
-            <p className="text-gray-400 text-sm mb-10 leading-relaxed font-light">
-              We couldn't find a configuration for <span className="text-white font-mono">{domain}</span>. 
-              Please log in to the studio to initialize your business profile.
+            <p className="text-gray-300 text-sm mb-10 leading-relaxed font-light">
+              We couldn't find a profile for: <br/>
+              {/* Highlighted the domain so it's never invisible */}
+              <span className="text-[#14b866] font-mono font-bold bg-[#14b866]/10 px-3 py-1 rounded-md mt-2 inline-block">
+                {currentDomain}
+              </span>
             </p>
             
             <a 
@@ -88,32 +90,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const displaySalon = salon || { name: "Studio", primaryColor: "#14b866" };
 
-  // --- DYNAMIC SEO & JSON-LD (Your Pinned Data) ---
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BeautySalon",
-    "name": salon?.name || "Premium Salon",
-    "image": salon?.heroImage || "https://salon45.vercel.app/opengraph-image.png",
-    "@id": `https://${domain}`,
-    "url": `https://${domain}`,
-    "telephone": salon?.whatsapp || "+254700000000",
-    "priceRange": "$$",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": salon?.location || "Dallas Area",
-      "addressLocality": "Embu",
-      "addressRegion": "Embu County",
-      "postalCode": "60100",
-      "addressCountry": "KE"
-    },
-    "openingHoursSpecification": [{
-      "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-      "opens": "08:00",
-      "closes": "20:00"
-    }]
-  };
-
   return (
     <html 
       lang="en" 
@@ -125,20 +101,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "--secondary": displaySalon.secondaryColor || "#000000",
       }}
     >
-      <head>
-        <title>{salon ? `${salon.name} | ${salon.tagline || 'Luxury Salon'}` : "Premium Salon | Premium Beauty"}</title>
-        <meta name="description" content={salon?.description || "Luxury beauty services and wellness."} />
-        <meta property="og:title" content={salon?.name || "Premium Salon"} />
-        <meta property="og:image" content={salon?.heroImage || "https://salon45.vercel.app/opengraph-image.png"} />
-      </head>
       <body className="antialiased bg-[#112119]">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        
         <NextTopLoader color={displaySalon.primaryColor || "#14b866"} />
-        
         {children}
       </body>
     </html>
