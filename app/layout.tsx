@@ -21,14 +21,13 @@ const inter = Inter({
 // --- DYNAMIC METADATA ENGINE ---
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
-  // Fixed: Getting the actual injected domain header
   const domain = headersList.get("x-site-domain") || "localhost:3000";
   const salon = await getSalonData(domain);
 
-  if (!salon) return { title: "Salon Not Found" };
+  if (!salon) return { title: "Salon Setup Required" };
 
   return {
-    title: `${salon.name} | ${salon.tagline || 'Luxury Salon'}`,
+    title: `${salon.name} | ${salon.tagline || 'Premium Beauty'}`,
     description: salon.description || `Luxury beauty services at ${salon.location}.`,
     openGraph: {
       title: salon.name,
@@ -47,29 +46,29 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // 1. Get the domain and current path from headers
   const headersList = await headers();
   const domain = headersList.get("x-site-domain") || "localhost:3000";
-  const currentPath = headersList.get("x-pathname") || "/";
+  const currentPath = headersList.get("x-pathname") || "";
   
-  // 2. Fetch salon data
   const salon = await getSalonData(domain);
 
-  // 3. IF NO SALON IS FOUND: 
-  // We show the "Setup" screen ONLY if the user isn't already trying to go to the studio.
-  if (!salon && !currentPath.startsWith('/studio')) {
+  // Identify if we are currently accessing the studio route
+  const isStudio = currentPath.startsWith('/studio') || 
+                   headersList.get('x-invoke-path')?.includes('/studio');
+
+  // 1. SETUP SCREEN: Show only if no salon exists AND we aren't in the studio
+  if (!salon && !isStudio) {
     return (
       <html lang="en">
         <body className={`${inter.className} bg-[#112119] flex h-screen items-center justify-center text-white`}>
           <div className="text-center p-8 border border-white/10 rounded-3xl bg-white/5 backdrop-blur-md max-w-md">
-            <h1 className="text-3xl font-light mb-4 font-serif">Salon Setup Required</h1>
+            <h1 className="text-3xl font-light mb-4 font-serif text-[#14b866]">Setup Required</h1>
             <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-              We couldn't find a salon configuration for <span className="text-[#14b866] font-mono">{domain}</span>. 
-              Log in to the studio to create your business profile.
+              Domain <span className="text-white font-mono">{domain}</span> is not linked to a salon yet.
             </p>
             <a 
               href="/studio" 
-              className="inline-block bg-white text-black px-8 py-3 rounded-full text-xs uppercase tracking-[0.2em] font-bold hover:bg-[#14b866] hover:text-white transition-all"
+              className="inline-block bg-[#14b866] text-white px-8 py-3 rounded-full text-xs uppercase tracking-[0.2em] font-bold hover:opacity-90 transition-all"
             >
               Open Studio
             </a>
@@ -79,8 +78,7 @@ export default async function RootLayout({
     );
   }
 
-  // 4. PREPARE DISPLAY DATA:
-  // If we are in the studio, salon might be null, so we use fallbacks to prevent crashes.
+  // 2. PREPARE DISPLAY DATA (With safe fallbacks for Studio mode)
   const displaySalon = salon || {
     name: "Salon Studio",
     primaryColor: "#14b866",
@@ -89,7 +87,7 @@ export default async function RootLayout({
     location: ""
   };
 
-  // 5. BUILD JSON-LD
+  // 3. BUILD JSON-LD (SEO Schema)
   const jsonLd = salon ? {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
@@ -114,7 +112,6 @@ export default async function RootLayout({
     <html 
       lang="en" 
       className={`${cormorant.variable} ${inter.variable}`}
-      // Injecting brand colors as CSS variables
       style={{
         // @ts-ignore
         "--primary": displaySalon.primaryColor || "#14b866",
@@ -130,12 +127,7 @@ export default async function RootLayout({
           />
         )}
         
-        <NextTopLoader
-          color={displaySalon.primaryColor || "#14b866"}
-          height={3}
-          showSpinner={false}
-          shadow="0 0 10px var(--primary),0 0 5px var(--primary)"
-        />
+        <NextTopLoader color={displaySalon.primaryColor || "#14b866"} />
 
         {children}
       </body>
