@@ -5,12 +5,16 @@ export default defineType({
   title: 'Customer Reviews',
   type: 'document',
   fields: [
+    // --- MULTI-TENANT LINK ---
     defineField({
-      name: 'reviewerName',
-      title: 'Name',
-      type: 'string',
-      validation: Rule => Rule.required()
+      name: 'salon',
+      title: 'Belongs to Salon',
+      type: 'reference',
+      to: [{ type: 'salon' }],
+      validation: Rule => Rule.required(),
     }),
+
+    defineField({ name: 'reviewerName', title: 'Name', type: 'string', validation: Rule => Rule.required() }),
     defineField({
       name: 'rating',
       title: 'Rating',
@@ -27,24 +31,9 @@ export default defineType({
         layout: 'radio'
       }
     }),
-    defineField({
-      name: 'reviewText',
-      title: 'Review',
-      type: 'text',
-      rows: 4,
-      validation: Rule => Rule.required()
-    }),
-    defineField({
-      name: 'serviceReceived',
-      title: 'Service Received (optional)',
-      type: 'string'
-    }),
-    defineField({
-      name: 'reviewDate',
-      title: 'Date Submitted',
-      type: 'datetime',
-      initialValue: () => new Date().toISOString()
-    }),
+    defineField({ name: 'reviewText', title: 'Review', type: 'text', rows: 4, validation: Rule => Rule.required() }),
+    defineField({ name: 'serviceReceived', title: 'Service Received (optional)', type: 'string' }),
+    defineField({ name: 'reviewDate', title: 'Date Submitted', type: 'datetime', initialValue: () => new Date().toISOString() }),
     defineField({
       name: 'status',
       title: 'Status',

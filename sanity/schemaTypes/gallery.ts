@@ -5,6 +5,15 @@ export default defineType({
   title: '📸 Gallery / Lookbook',
   type: 'document',
   fields: [
+    // --- MULTI-TENANT LINK ---
+    defineField({
+      name: 'salon',
+      title: 'Belongs to Salon',
+      type: 'reference',
+      to: [{ type: 'salon' }],
+      validation: Rule => Rule.required(),
+    }),
+
     defineField({
       name: 'mediaType',
       title: 'Media Type',
@@ -26,12 +35,7 @@ export default defineType({
       options: { hotspot: true },
       hidden: ({ parent }) => parent?.mediaType === 'video',
       fields: [
-        {
-          name: 'alt',
-          type: 'string',
-          title: 'Alt Text',
-          description: 'Describe the image for accessibility'
-        }
+        { name: 'alt', type: 'string', title: 'Alt Text', description: 'Describe the image for accessibility' }
       ]
     }),
     defineField({
@@ -42,34 +46,10 @@ export default defineType({
       hidden: ({ parent }) => parent?.mediaType === 'image',
       validation: Rule => Rule.uri({ scheme: ['http', 'https'] })
     }),
-    defineField({
-      name: 'description',
-      title: 'Short Description',
-      type: 'string',
-      description: 'A brief caption (e.g., "Balayage Masterpiece")',
-      validation: Rule => Rule.max(60)
-    }),
-    defineField({
-      name: 'category',
-      title: 'Category',
-      type: 'string',
-      options: {
-        list: ['Hair', 'Nails', 'Spa', 'Makeup', 'Treatments', 'Styling']
-      }
-    }),
-    defineField({
-      name: 'order',
-      title: 'Display Order',
-      type: 'number',
-      description: 'Lower numbers appear first',
-      validation: Rule => Rule.min(0).integer()
-    }),
-    defineField({
-      name: 'isActive',
-      title: 'Active',
-      type: 'boolean',
-      initialValue: true
-    })
+    defineField({ name: 'description', title: 'Short Description', type: 'string', description: 'A brief caption (e.g., "Balayage Masterpiece")', validation: Rule => Rule.max(60) }),
+    defineField({ name: 'category', title: 'Category', type: 'string', options: { list: ['Hair', 'Nails', 'Spa', 'Makeup', 'Treatments', 'Styling'] } }),
+    defineField({ name: 'order', title: 'Display Order', type: 'number', description: 'Lower numbers appear first', validation: Rule => Rule.min(0).integer() }),
+    defineField({ name: 'isActive', title: 'Active', type: 'boolean', initialValue: true })
   ],
   preview: {
     select: {
