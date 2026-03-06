@@ -4,6 +4,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSalonData } from "@/sanity/lib/client"; 
+import Script from "next/script";
 import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 
@@ -90,21 +91,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const displaySalon = salon || { name: "Studio", primaryColor: "#14b866" };
 
-  return (
-    <html 
-      lang="en" 
-      className={`${cormorant.variable} ${inter.variable}`}
-      style={{
-        // @ts-ignore
-        "--primary": displaySalon.primaryColor || "#14b866",
-        // @ts-ignore
-        "--secondary": displaySalon.secondaryColor || "#000000",
-      }}
-    >
-      <body className="antialiased bg-[#112119]">
-        <NextTopLoader color={displaySalon.primaryColor || "#14b866"} />
-        {children}
-      </body>
-    </html>
-  );
+return (
+  <html 
+    lang="en" 
+    className={`${cormorant.variable} ${inter.variable}`}
+    style={{
+      // @ts-ignore
+      "--primary": displaySalon.primaryColor || "#14b866",
+      // @ts-ignore
+      "--secondary": displaySalon.secondaryColor || "#000000",
+    }}
+  >
+    <body className="antialiased bg-[#112119]">
+      <NextTopLoader color={displaySalon.primaryColor || "#14b866"} />      
+      {children}
+      
+      {/* Google Analytics - Place AFTER children but BEFORE closing body */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-3VV9T94EWD"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-3VV9T94EWD');
+        `}
+      </Script>
+    </body>
+  </html>
+);
 }
